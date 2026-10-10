@@ -1,0 +1,43 @@
+name: Refresh public intelligence
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/update_stats.py
+      - .github/workflows/update-stats.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: profile-public-intelligence
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the profile
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Refresh the public record
+        env:
+          PROFILE_USERNAME: ${{ github.repository_owner }}
+        run: python3 scripts/update_stats.py
+
+      - name: Commit the refreshed card
+        run: |
+          if git diff --quiet -- assets/operations-stats.svg assets/operations-stats-mobile.svg assets/stats.json; then
+            echo 'Public record is already current.'
+            exit 0
+          fi
+          git config --local user.name 'github-actions[bot]'
+          git config --local user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/operations-stats.svg assets/operations-stats-mobile.svg assets/stats.json
+          git commit -m 'docs: refresh public intelligence'
+          git push
